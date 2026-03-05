@@ -1,0 +1,6 @@
+aiofiles==23.2.1
+elasticsearch[async]==8.13.0
+fastapi==0.111.0
+pydantic==2.7.0
+pydantic-settings==2.2.1
+uvicorn[standard]==0.29.0
