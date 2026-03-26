@@ -1,38 +1,37 @@
 import json
 import os
 from datetime import datetime, timezone
-from typing import Any
 from app.config import settings
 
 RAW_FILE = os.path.join(settings.DATA_DIR, "raw_documents.json")
 
 
-def _read_store() -> list[dict[str, Any]]:
+def load_documents():
     if not os.path.exists(RAW_FILE):
         return []
     with open(RAW_FILE, "r") as f:
         return json.load(f)
 
 
-def _write_store(data: list[dict[str, Any]]) -> None:
+def save_documents(data):
     os.makedirs(os.path.dirname(RAW_FILE), exist_ok=True)
     with open(RAW_FILE, "w") as f:
         json.dump(data, f, indent=2, default=str)
 
 
-def append_documents(documents: list[dict[str, Any]]) -> int:
-    store = _read_store()
+def append_documents(documents):
+    store = load_documents()
     for doc in documents:
         doc.setdefault("ingested_at", datetime.now(timezone.utc).isoformat())
         store.append(doc)
-    _write_store(store)
+    save_documents(store)
     return len(documents)
 
 
-def read_all_documents() -> list[dict[str, Any]]:
-    return _read_store()
+def read_all_documents():
+    return load_documents()
 
 
-def clear_store() -> None:
+def clear_store():
     if os.path.exists(RAW_FILE):
         os.remove(RAW_FILE)

@@ -1,17 +1,22 @@
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+
+from fastapi import FastAPI, HTTPException
+
+from app import ingestion, json_store
 from app.config import settings
 from app.elasticsearch import es_client
-from app.index_config import INDEX_NAME, INDEX_SETTINGS
-from app import json_store
+from app.index_config import INDEX_ALIAS, INDEX_BODY, new_index_name
+from app.models import IngestRequest, IngestResponse, ReindexResponse
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     os.makedirs(settings.DATA_DIR, exist_ok=True)
-    if not await es_client.indices.exists(index=INDEX_NAME):
-        await es_client.indices.create(index=INDEX_NAME, body=INDEX_SETTINGS)
+    if not await es_client.indices.exists_alias(name=INDEX_ALIAS):
+        index_name = new_index_name()
+        await es_client.indices.create(index=index_name, body=INDEX_BODY)
+        await es_client.indices.put_alias(index=index_name, name=INDEX_ALIAS)
     yield
     await es_client.close()
 
@@ -34,15 +39,56 @@ async def health_es():
     }
 
 
-@app.post("/reindex")
+@app.post("/ingest", response_model=IngestResponse)
+async def ingest(payload: IngestRequest):
+    raw_docs = [doc.model_dump(mode="json", exclude_none=True) for doc in payload.documents]
+
+    valid_docs, validation_errors = ingestion.validate_documents(raw_docs)
+    if not valid_docs:
+        raise HTTPException(status_code=422, detail=validation_errors)
+
+    saved = json_store.append_documents(valid_docs)
+    indexed, bulk_errors = await ingestion.bulk_ingest(es_client, valid_docs)
+    await es_client.indices.refresh(index=INDEX_ALIAS)
+
+    return IngestResponse(
+        indexed=indexed,
+        saved_to_store=saved,
+        errors=validation_errors + bulk_errors,
+    )
+
+
+@app.post("/reindex", response_model=ReindexResponse)
 async def reindex():
-    documents = json_store.read_all_documents()
-    if not documents:
-        return {"reindexed": 0}
-    if await es_client.indices.exists(index=INDEX_NAME):
-        await es_client.indices.delete(index=INDEX_NAME)
-    await es_client.indices.create(index=INDEX_NAME, body=INDEX_SETTINGS)
-    for doc in documents:
-        await es_client.index(index=INDEX_NAME, document=doc)
-    await es_client.indices.refresh(index=INDEX_NAME)
-    return {"reindexed": len(documents)}
+    all_docs = json_store.read_all_documents()
+
+    new_index = new_index_name()
+    await es_client.indices.create(index=new_index, body=INDEX_BODY)
+
+    indexed = 0
+    errors = []
+    if all_docs:
+        valid_docs, validation_errors = ingestion.validate_documents(all_docs)
+        indexed, bulk_errors = await ingestion.bulk_ingest(es_client, valid_docs, index=new_index)
+        errors = validation_errors + bulk_errors
+
+    await es_client.indices.refresh(index=new_index)
+
+    # find which indices are currently behind the alias
+    old_indices = []
+    if await es_client.indices.exists_alias(name=INDEX_ALIAS):
+        alias_info = await es_client.indices.get_alias(name=INDEX_ALIAS)
+        old_indices = list(alias_info.keys())
+
+    # swap alias to the new index
+    actions = []
+    for old in old_indices:
+        actions.append({"remove": {"index": old, "alias": INDEX_ALIAS}})
+    actions.append({"add": {"index": new_index, "alias": INDEX_ALIAS}})
+    await es_client.indices.update_aliases(body={"actions": actions})
+
+    # delete old indices
+    for old in old_indices:
+        await es_client.indices.delete(index=old, ignore_unavailable=True)
+
+    return ReindexResponse(reindexed=indexed, new_index=new_index, errors=errors)
