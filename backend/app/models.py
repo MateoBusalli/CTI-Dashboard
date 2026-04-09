@@ -29,6 +29,33 @@ class DocumentIn(BaseModel):
         return v
 
 
+class SearchRequest(BaseModel):
+    query: str = ""
+    document_type: Optional[str] = None
+    tags: list = Field(default_factory=list)
+    indicator_type: Optional[str] = None
+    source_name: Optional[str] = None
+    confidence_min: Optional[int] = Field(None, ge=0, le=100)
+    confidence_max: Optional[int] = Field(None, ge=0, le=100)
+    page: int = Field(1, ge=1)
+    size: int = Field(20, ge=1, le=100)
+    sort_by: str = "_score"
+    sort_order: str = "desc"
+
+
+class SearchHit(BaseModel):
+    id: str
+    score: Optional[float]
+    source: dict
+
+
+class SearchResponse(BaseModel):
+    total: int
+    page: int
+    size: int
+    results: list[SearchHit]
+
+
 class IngestRequest(BaseModel):
     documents: list[DocumentIn]
 
