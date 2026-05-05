@@ -1,4 +1,34 @@
 services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: cti-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsSL http://localhost:11434/api/tags || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - cti-network
+
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: cti-ollama-init
+    restart: "no"
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["ollama", "pull", "dolphin-llama3"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - cti-network
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
     container_name: cti-elasticsearch
@@ -18,25 +48,11 @@ services:
     volumes:
       - es_data:/usr/share/elasticsearch/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsSL http://localhost:9200/_cluster/health || exit 1"]
-      interval: 15s
+      test: ["CMD-SHELL", "curl -fsSL http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s || exit 1"]
+      interval: 10s
       timeout: 10s
-      retries: 10
-      start_period: 30s
-    networks:
-      - cti-network
-
-  kibana:
-    image: docker.elastic.co/kibana/kibana:8.13.0
-    container_name: cti-kibana
-    restart: unless-stopped
-    environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-    ports:
-      - "${KIBANA_PORT:-5601}:5601"
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
+      retries: 15
+      start_period: 60s
     networks:
       - cti-network
 
@@ -50,6 +66,8 @@ services:
     environment:
       ELASTICSEARCH_URL: http://elasticsearch:9200
       DATA_DIR: /data
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: dolphin-llama3
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
@@ -58,11 +76,31 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
+      ollama:
+        condition: service_healthy
+    networks:
+      - cti-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cti-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
     networks:
       - cti-network
 
 volumes:
   es_data:
+    driver: local
+  ollama_data:
     driver: local
 
 networks:

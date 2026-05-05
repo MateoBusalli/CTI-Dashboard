@@ -38,7 +38,7 @@ class SearchRequest(BaseModel):
     confidence_min: Optional[int] = Field(None, ge=0, le=100)
     confidence_max: Optional[int] = Field(None, ge=0, le=100)
     page: int = Field(1, ge=1)
-    size: int = Field(20, ge=1, le=100)
+    size: int = Field(20, ge=1, le=500)
     sort_by: str = "_score"
     sort_order: str = "desc"
 
@@ -70,3 +70,79 @@ class ReindexResponse(BaseModel):
     reindexed: int
     new_index: str
     errors: list
+
+
+class FetchOTXRequest(BaseModel):
+    api_key: Optional[str] = None
+    limit: int = Field(50, ge=1, le=200)
+    modified_since: Optional[str] = None
+
+
+class IndicatorItem(BaseModel):
+    value: str
+    type: str
+
+
+class FetchVTRequest(BaseModel):
+    api_key: Optional[str] = None
+    indicators: list[IndicatorItem]
+
+
+class FetchSimpleRequest(BaseModel):
+    limit: int = Field(200, ge=1, le=500)
+    auth_key: Optional[str] = None
+
+
+class FetchThreatFoxRequest(BaseModel):
+    days: int = Field(3, ge=1, le=7)
+    limit: int = Field(200, ge=1, le=500)
+    auth_key: Optional[str] = None
+
+
+class FetchResponse(BaseModel):
+    source: str
+    fetched: int
+    indexed: int
+    errors: list
+
+
+class FetchCisaKevRequest(BaseModel):
+    limit: int = Field(200, ge=1, le=1000)
+
+
+class FetchCertFrRequest(BaseModel):
+    limit: int = Field(50, ge=1, le=200)
+    feed_type: str = "alerte"
+
+
+class FetchNvdRequest(BaseModel):
+    limit: int = Field(50, ge=1, le=200)
+    days: int = Field(7, ge=1, le=30)
+    api_key: Optional[str] = None
+
+
+class FetchRssRequest(BaseModel):
+    feed_keys: Optional[list] = None  # None = all feeds
+    limit_per_feed: int = Field(20, ge=1, le=50)
+
+
+class DeleteRequest(BaseModel):
+    document_type: Optional[str] = None  # None = all types
+    mode: str = "all"  # "all" | "last_n"
+    n: Optional[int] = Field(None, ge=1)
+
+
+class DeleteResponse(BaseModel):
+    deleted: int
+    document_type: Optional[str]
+    mode: str
+
+
+class ChatMessage(BaseModel):
+    role: str  # "user" | "assistant"
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage]
+    model: Optional[str] = None  # override OLLAMA_MODEL if provided

@@ -1,0 +1,106 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #070b10;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* ─── ReactFlow dark overrides ─────────────────────────────────────────────── */
+.react-flow__node {
+  overflow: visible !important;
+}
+
+.react-flow__controls {
+  background: #0d1520 !important;
+  border: 1px solid #1a2e45 !important;
+  border-radius: 3px !important;
+  box-shadow: none !important;
+}
+
+.react-flow__controls-button {
+  background: #0d1520 !important;
+  border-color: #1a2e45 !important;
+  color: #c4d0e0 !important;
+  fill: #c4d0e0 !important;
+}
+
+.react-flow__controls-button:hover {
+  background: #111d2e !important;
+}
+
+.react-flow__minimap {
+  border-radius: 3px !important;
+  box-shadow: none !important;
+}
+
+.react-flow__handle {
+  border-radius: 3px !important;
+  border: none !important;
+  min-width: unset !important;
+  min-height: unset !important;
+}
+
+.react-flow__handle-left,
+.react-flow__handle-right {
+  width: 5px !important;
+  height: 18px !important;
+}
+
+.react-flow__handle-top,
+.react-flow__handle-bottom {
+  width: 18px !important;
+  height: 5px !important;
+}
+
+.react-flow__edge-path {
+  stroke-width: 1.5;
+}
+
+/* ─── Node drag grip ──────────────────────────────────────────────────────── */
+.node-grip {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 3px;
+  border-radius: 99px;
+  background: #1e3550;
+  cursor: grab;
+  z-index: 10;
+  transition: background 0.2s ease, width 0.2s ease;
+}
+.node-grip:hover {
+  background: #2d5070;
+  width: 44px;
+}
+.node-grip:active {
+  cursor: grabbing;
+}
+.node-grip--note {
+  background: #3a2c00;
+}
+.node-grip--note:hover {
+  background: #5c4600;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #070b10;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1c2d42;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #243850;
+}

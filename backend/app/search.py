@@ -40,18 +40,26 @@ async def run_search(params):
                 "filter": filters,
             }
         }
-    sort = [{params.sort_by: {"order": params.sort_order}}]
-    if params.sort_by != "_score":
+    # When no text query, _score sort is meaningless  fall back to ingested_at
+    effective_sort_by = params.sort_by
+    if params.sort_by == "_score" and not must:
+        effective_sort_by = "ingested_at"
+
+    sort = [{effective_sort_by: {"order": params.sort_order}}]
+    if effective_sort_by != "_score":
         sort.append({"_score": {"order": "desc"}})
-    response = await es_client.search(
-        index=INDEX_ALIAS,
-        body={
-            "query": query,
-            "sort": sort,
-            "from": (params.page - 1) * params.size,
-            "size": params.size,
-        },
-    )
+
+    body = {
+        "query": query,
+        "sort": sort,
+        "from": (params.page - 1) * params.size,
+        "size": params.size,
+    }
+    # Don't track scores when there's no text query (avoids returning 1.0 for all docs)
+    if not must:
+        body["track_scores"] = False
+
+    response = await es_client.search(index=INDEX_ALIAS, body=body)
     total = response["hits"]["total"]["value"]
     hits = []
     for hit in response["hits"]["hits"]:
